@@ -1,0 +1,36 @@
+# Go
+/bin/
+/pkg/
+/vendor/
+/*.exe
+/*.exe~
+/*.dll
+/*.so
+/*.dylib
+go.work
+go.work.sum
+
+# Временные файлы и кэш
+*.log
+*.tmp
+tmp/
+*.cache
+
+# Файлы редактора VS Code
+.vscode/
+*.code-workspace
+
+# Локальные конфигурации
+.env
+*.local
+
+# Директории сборки и артефакты
+/dist/
+/build/
+
+# Тестовые данные и покрытие
+*.out
+coverage.txt
+
+# macOS
+.DS_Store
