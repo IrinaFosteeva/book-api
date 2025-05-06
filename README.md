@@ -23,6 +23,12 @@ A simple REST API for managing books, built with Go and MongoDB.
    go mod init book-api
    go get github.com/gorilla/mux
    go get go.mongodb.org/mongo-driver/mongo
+
+   go get github.com/swaggo/swag@v1.16.4
+   go get github.com/swaggo/http-swagger
+   go install github.com/swaggo/swag/cmd/swag@v1.16.4
+   swag init --dir ./cmd/api,./internal --output ./docs
+
    go run cmd/api/main.go
    ```
 
