@@ -5,7 +5,7 @@ import (
     "encoding/json"
     "net/http"
     "book-api/internal/models"
-
+    "log"
     "go.mongodb.org/mongo-driver/bson"
     "go.mongodb.org/mongo-driver/bson/primitive"
     "go.mongodb.org/mongo-driver/mongo"
@@ -56,6 +56,7 @@ func (app *App) CreateBook(w http.ResponseWriter, r *http.Request) {
 func (app *App) GetBooks(w http.ResponseWriter, r *http.Request) {
     cursor, err := app.collection.Find(context.TODO(), bson.M{})
     if err != nil {
+        log.Printf("Failed to fetch books: %v", err)
         http.Error(w, "Failed to fetch books", http.StatusInternalServerError)
         return
     }
@@ -63,6 +64,7 @@ func (app *App) GetBooks(w http.ResponseWriter, r *http.Request) {
 
     var books []models.Book
     if err := cursor.All(context.TODO(), &books); err != nil {
+        log.Printf("Failed to decode books: %v", err)
         http.Error(w, "Failed to decode books", http.StatusInternalServerError)
         return
     }

@@ -24,8 +24,8 @@ func SetupRoutes() *mux.Router {
     router := mux.NewRouter()
     router.Use(loggingMiddleware)
     router.HandleFunc("/books", app.CreateBook).Methods("POST")
-    router.HandleFunc("/books", app.GetBooks).Methods("GET")
     router.HandleFunc("/books", app.GetBookByID).Queries("id", "{id}").Methods("GET")
+    router.HandleFunc("/books", app.GetBooks).Methods("GET")
     router.HandleFunc("/books", app.DeleteBook).Queries("id", "{id}").Methods("DELETE")
 
     return router
@@ -34,8 +34,8 @@ func SetupRoutes() *mux.Router {
 func loggingMiddleware(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         start := time.Now()
-        log.Printf("Started %s %s", r.Method, r.URL.Path)
+        log.Printf("Started %s %s", r.Method, r.URL.String())
         next.ServeHTTP(w, r)
-        log.Printf("Completed %s %s in %v", r.Method, r.URL.Path, time.Since(start))
+        log.Printf("Completed %s %s in %v", r.Method, r.URL.String(), time.Since(start))
     })
 }
