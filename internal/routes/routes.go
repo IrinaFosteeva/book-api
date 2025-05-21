@@ -1,18 +1,13 @@
 package routes
 
 import (
-    "context"
     "log"
-
     "book-api/internal/handlers"
     "book-api/internal/middleware"
     "book-api/internal/repository"
     "book-api/internal/service"
     "book-api/internal/db"
-
     "github.com/gorilla/mux"
-    "go.mongodb.org/mongo-driver/mongo"
-    "go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func SetupRoutes() *mux.Router {
