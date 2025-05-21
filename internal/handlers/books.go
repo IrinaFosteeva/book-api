@@ -1,49 +1,32 @@
 package handlers
 
 import (
-    "context"
     "encoding/json"
     "net/http"
-    "book-api/internal/models"
+    "book-api/internal/service"
     "log"
-    "go.mongodb.org/mongo-driver/bson"
-    "go.mongodb.org/mongo-driver/bson/primitive"
-    "go.mongodb.org/mongo-driver/mongo"
-    "go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type Collection interface {
-    InsertOne(ctx context.Context, document interface{}, opts ...*options.InsertOneOptions) (*mongo.InsertOneResult, error)
-    Find(ctx context.Context, filter interface{}, opts ...*options.FindOptions) (*mongo.Cursor, error)
-    FindOne(ctx context.Context, filter interface{}, opts ...*options.FindOneOptions) *mongo.SingleResult
-    DeleteOne(ctx context.Context, filter interface{}, opts ...*options.DeleteOptions) (*mongo.DeleteResult, error)
+type BookHandler struct {
+    service service.BookService
 }
 
-type App struct {
-    collection Collection
+func NewBookHandler(s service.BookService) *BookHandler {
+    return &BookHandler{service: s}
 }
 
-func NewApp(collection Collection) *App {
-    return &App{collection: collection}
-}
-
-func (app *App) CreateBook(w http.ResponseWriter, r *http.Request) {
+func (h *BookHandler) CreateBook(w http.ResponseWriter, r *http.Request) {
     var input struct {
         Title  string `json:"title"`
         Author string `json:"author"`
     }
+
     if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
         http.Error(w, "Invalid request body", http.StatusBadRequest)
         return
     }
 
-    book := models.Book{
-        ID:     primitive.NewObjectID(),
-        Title:  input.Title,
-        Author: input.Author,
-    }
-
-    _, err := app.collection.InsertOne(context.TODO(), book)
+    book, err := h.service.Create(r.Context(), input.Title, input.Author)
     if err != nil {
         http.Error(w, "Failed to create book: "+err.Error(), http.StatusInternalServerError)
         return
@@ -53,74 +36,43 @@ func (app *App) CreateBook(w http.ResponseWriter, r *http.Request) {
     json.NewEncoder(w).Encode(book)
 }
 
-func (app *App) GetBooks(w http.ResponseWriter, r *http.Request) {
-    cursor, err := app.collection.Find(context.TODO(), bson.M{})
+func (h *BookHandler) GetBooks(w http.ResponseWriter, r *http.Request) {
+    books, err := h.service.GetAll(r.Context())
     if err != nil {
         log.Printf("Failed to fetch books: %v", err)
         http.Error(w, "Failed to fetch books", http.StatusInternalServerError)
-        return
-    }
-    defer cursor.Close(context.TODO())
-
-    var books []models.Book
-    if err := cursor.All(context.TODO(), &books); err != nil {
-        log.Printf("Failed to decode books: %v", err)
-        http.Error(w, "Failed to decode books", http.StatusInternalServerError)
         return
     }
 
     json.NewEncoder(w).Encode(books)
 }
 
-func (app *App) GetBookByID(w http.ResponseWriter, r *http.Request) {
-    vars := r.URL.Query()
-    id := vars.Get("id")
+func (h *BookHandler) GetBookByID(w http.ResponseWriter, r *http.Request) {
+    id := r.URL.Query().Get("id")
     if id == "" {
         http.Error(w, "Missing id parameter", http.StatusBadRequest)
         return
     }
 
-    objID, err := primitive.ObjectIDFromHex(id)
+    book, err := h.service.GetByID(r.Context(), id)
     if err != nil {
-        http.Error(w, "Invalid id format", http.StatusBadRequest)
-        return
-    }
-
-    var book models.Book
-    result := app.collection.FindOne(context.TODO(), bson.M{"_id": objID})
-    if err := result.Decode(&book); err == mongo.ErrNoDocuments {
-        http.Error(w, "Book not found", http.StatusNotFound)
-        return
-    }
-    if err != nil {
-        http.Error(w, "Failed to decode book: "+err.Error(), http.StatusInternalServerError)
+        http.Error(w, "Book not found or invalid ID: "+err.Error(), http.StatusNotFound)
         return
     }
 
     json.NewEncoder(w).Encode(book)
 }
 
-func (app *App) DeleteBook(w http.ResponseWriter, r *http.Request) {
-    vars := r.URL.Query()
-    id := vars.Get("id")
+func (h *BookHandler) DeleteBook(w http.ResponseWriter, r *http.Request) {
+    id := r.URL.Query().Get("id")
     if id == "" {
         http.Error(w, "Missing id parameter", http.StatusBadRequest)
         return
     }
 
-    objID, err := primitive.ObjectIDFromHex(id)
-    if err != nil {
-        http.Error(w, "Invalid id format", http.StatusBadRequest)
-        return
-    }
-
-    result, err := app.collection.DeleteOne(context.TODO(), bson.M{"_id": objID})
+    err := h.service.DeleteByID(r.Context(), id)
     if err != nil {
         http.Error(w, "Failed to delete book: "+err.Error(), http.StatusInternalServerError)
-        return
-    }
-    if result.DeletedCount == 0 {
-        http.Error(w, "Book not found", http.StatusNotFound)
         return
     }
 
