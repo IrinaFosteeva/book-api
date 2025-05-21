@@ -8,6 +8,7 @@ import (
     "book-api/internal/middleware"
     "book-api/internal/repository"
     "book-api/internal/service"
+    "book-api/internal/db"
 
     "github.com/gorilla/mux"
     "go.mongodb.org/mongo-driver/mongo"
@@ -15,10 +16,10 @@ import (
 )
 
 func SetupRoutes() *mux.Router {
-    client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI("mongodb://host.docker.internal:27017"))
+    client, err := db.Connect()
     if err != nil {
-        log.Fatal(err)
-    }
+    log.Fatal(err)
+}
     collection := client.Database("library").Collection("books")
 
     repo := repository.NewBookRepository(collection)
