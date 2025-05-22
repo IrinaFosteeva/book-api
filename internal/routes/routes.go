@@ -25,9 +25,11 @@ func SetupRoutes() *mux.Router {
     router.Use(middleware.LoggingMiddleware)
 
     router.HandleFunc("/books", handler.CreateBook).Methods("POST")
-    router.HandleFunc("/books", handler.GetBookByID).Queries("id", "{id}").Methods("GET")
+    router.HandleFunc("/books/{id}", handler.GetBookByID).Methods("GET")
     router.HandleFunc("/books", handler.GetBooks).Methods("GET")
-    router.HandleFunc("/books", handler.DeleteBook).Queries("id", "{id}").Methods("DELETE")
+    router.HandleFunc("/books/{id}", handler.DeleteBook).Methods("DELETE")
+    router.HandleFunc("/books/{id}", handler.UpdateBook).Methods("PATCH")
+
 
     return router
 }

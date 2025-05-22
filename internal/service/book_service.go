@@ -12,6 +12,7 @@ type BookService interface {
     GetAll(ctx context.Context) ([]models.Book, error)
     GetByID(ctx context.Context, id string) (models.Book, error)
     DeleteByID(ctx context.Context, id string) error
+	Update(ctx context.Context, book models.Book) error
 }
 
 type bookService struct {
@@ -20,6 +21,10 @@ type bookService struct {
 
 func NewBookService(r repository.BookRepository) BookService {
     return &bookService{repo: r}
+}
+
+func (s *bookService) Update(ctx context.Context, book models.Book) error {
+    return s.repo.Update(ctx, book)
 }
 
 func (s *bookService) Create(ctx context.Context, title, author string) (models.Book, error) {

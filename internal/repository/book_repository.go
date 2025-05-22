@@ -13,6 +13,7 @@ type BookRepository interface {
     GetAll(ctx context.Context) ([]models.Book, error)
     GetByID(ctx context.Context, id primitive.ObjectID) (models.Book, error)
     DeleteByID(ctx context.Context, id primitive.ObjectID) error
+	Update(ctx context.Context, book models.Book) error
 }
 
 type bookRepo struct {
@@ -26,6 +27,25 @@ func NewBookRepository(col *mongo.Collection) BookRepository {
 func (r *bookRepo) Create(ctx context.Context, book models.Book) error {
     _, err := r.collection.InsertOne(ctx, book)
     return err
+}
+
+func (r *bookRepo) Update(ctx context.Context, book models.Book) error {
+    filter := bson.M{"_id": book.ID}
+    update := bson.M{
+        "$set": bson.M{
+            "title":  book.Title,
+            "author": book.Author,
+        },
+    }
+
+    result, err := r.collection.UpdateOne(ctx, filter, update)
+    if err != nil {
+        return err
+    }
+    if result.MatchedCount == 0 {
+        return mongo.ErrNoDocuments
+    }
+    return nil
 }
 
 func (r *bookRepo) GetAll(ctx context.Context) ([]models.Book, error) {

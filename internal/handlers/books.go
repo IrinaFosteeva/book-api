@@ -5,6 +5,7 @@ import (
     "net/http"
     "book-api/internal/service"
     "log"
+    "github.com/gorilla/mux"
 )
 
 type BookHandler struct {
@@ -48,7 +49,8 @@ func (h *BookHandler) GetBooks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *BookHandler) GetBookByID(w http.ResponseWriter, r *http.Request) {
-    id := r.URL.Query().Get("id")
+    vars := mux.Vars(r)
+    id := vars["id"]
     if id == "" {
         http.Error(w, "Missing id parameter", http.StatusBadRequest)
         return
@@ -63,8 +65,51 @@ func (h *BookHandler) GetBookByID(w http.ResponseWriter, r *http.Request) {
     json.NewEncoder(w).Encode(book)
 }
 
+func (h *BookHandler) UpdateBook(w http.ResponseWriter, r *http.Request) {
+    vars := mux.Vars(r)
+    idStr := vars["id"]
+    if idStr == "" {
+        http.Error(w, "Missing id parameter", http.StatusBadRequest)
+        return
+    }
+
+    var input struct {
+        Title  *string `json:"title,omitempty"`
+        Author *string `json:"author,omitempty"`
+    }
+
+    defer r.Body.Close()
+    if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+        http.Error(w, "Invalid request body", http.StatusBadRequest)
+        return
+    }
+
+    book, err := h.service.GetByID(r.Context(), idStr)
+    if err != nil {
+        http.Error(w, "Book not found", http.StatusNotFound)
+        return
+    }
+
+    if input.Title != nil {
+        book.Title = *input.Title
+    }
+    if input.Author != nil {
+        book.Author = *input.Author
+    }
+
+    err = h.service.Update(r.Context(), book)
+    if err != nil {
+        http.Error(w, "Failed to update book: "+err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(book)
+}
+
 func (h *BookHandler) DeleteBook(w http.ResponseWriter, r *http.Request) {
-    id := r.URL.Query().Get("id")
+    vars := mux.Vars(r)
+    id := vars["id"]
     if id == "" {
         http.Error(w, "Missing id parameter", http.StatusBadRequest)
         return
