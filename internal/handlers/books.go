@@ -6,6 +6,7 @@ import (
     "book-api/internal/service"
     "log"
     "github.com/gorilla/mux"
+    "github.com/go-playground/validator/v10"
 )
 
 type BookHandler struct {
@@ -16,14 +17,21 @@ func NewBookHandler(s service.BookService) *BookHandler {
     return &BookHandler{service: s}
 }
 
+var validate = validator.New()
+
 func (h *BookHandler) CreateBook(w http.ResponseWriter, r *http.Request) {
     var input struct {
-        Title  string `json:"title"`
-        Author string `json:"author"`
+        Title  string `json:"title" validate:"required,min=2,max=50"`
+        Author string `json:"author" validate:"required,min=2,max=50"`
     }
 
     if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
         http.Error(w, "Invalid request body", http.StatusBadRequest)
+        return
+    }
+
+    if err := validate.Struct(input); err != nil {
+        http.Error(w, "Validation failed: "+err.Error(), http.StatusBadRequest)
         return
     }
 
@@ -74,13 +82,18 @@ func (h *BookHandler) UpdateBook(w http.ResponseWriter, r *http.Request) {
     }
 
     var input struct {
-        Title  *string `json:"title,omitempty"`
-        Author *string `json:"author,omitempty"`
+        Title  *string `json:"title,omitempty" validate:"omitempty,min=2"`
+        Author *string `json:"author,omitempty" validate:"omitempty,min=2"`
     }
 
     defer r.Body.Close()
     if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
         http.Error(w, "Invalid request body", http.StatusBadRequest)
+        return
+    }
+    
+    if err := validate.Struct(&input); err != nil {
+        http.Error(w, "Validation failed: "+err.Error(), http.StatusBadRequest)
         return
     }
 

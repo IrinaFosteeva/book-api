@@ -28,6 +28,9 @@ A simple REST API for managing books, built with Go and MongoDB.
    go get github.com/swaggo/http-swagger
    go install github.com/swaggo/swag/cmd/swag@v1.16.4
    swag init --dir ./cmd/api,./internal --output ./docs
+   
+   go get github.com/go-playground/validator/v10
+
 
    go run cmd/api/main.go
    ```
