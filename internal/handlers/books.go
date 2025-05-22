@@ -8,6 +8,8 @@ import (
     "github.com/go-playground/validator/v10"
     "book-api/internal/http/apierr"
     "book-api/internal/http/dto"
+    "strconv"
+    "book-api/internal/models"
 )
 
 type BookHandler struct {
@@ -50,14 +52,37 @@ func (h *BookHandler) CreateBook(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *BookHandler) GetBooks(w http.ResponseWriter, r *http.Request) {
-    books, err := h.service.GetAll(r.Context())
-    if err != nil {
-        apierr.RespondWithError(w, apierr.NewInternalError("Не удалось получить список книг"))
-        return
-    }
+	title := r.URL.Query().Get("title")
+	author := r.URL.Query().Get("author")
 
-    w.Header().Set("Content-Type", "application/json")
-    json.NewEncoder(w).Encode(books)
+	limitStr := r.URL.Query().Get("limit")
+	offsetStr := r.URL.Query().Get("offset")
+
+	limit := int64(10)
+	offset := int64(0)
+
+	if l, err := strconv.ParseInt(limitStr, 10, 64); err == nil {
+		limit = l
+	}
+	if o, err := strconv.ParseInt(offsetStr, 10, 64); err == nil {
+		offset = o
+	}
+
+	filter := models.BookFilter{
+		Title:  title,
+		Author: author,
+		Limit:  limit,
+		Offset: offset,
+	}
+
+	books, err := h.service.GetAll(r.Context(), filter)
+	if err != nil {
+		apierr.RespondWithError(w, apierr.NewInternalError("Не удалось получить книги"))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(books)
 }
 
 func (h *BookHandler) GetBookByID(w http.ResponseWriter, r *http.Request) {

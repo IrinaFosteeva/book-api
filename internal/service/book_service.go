@@ -9,7 +9,7 @@ import (
 
 type BookService interface {
     Create(ctx context.Context, title, author string) (models.Book, error)
-    GetAll(ctx context.Context) ([]models.Book, error)
+    GetAll(ctx context.Context, filter models.BookFilter) ([]models.Book, error)
     GetByID(ctx context.Context, id string) (models.Book, error)
     DeleteByID(ctx context.Context, id string) error
 	Update(ctx context.Context, book models.Book) error
@@ -37,8 +37,8 @@ func (s *bookService) Create(ctx context.Context, title, author string) (models.
     return book, err
 }
 
-func (s *bookService) GetAll(ctx context.Context) ([]models.Book, error) {
-    return s.repo.GetAll(ctx)
+func (s *bookService) GetAll(ctx context.Context, filter models.BookFilter) ([]models.Book, error) {
+    return s.repo.GetAll(ctx, filter)
 }
 
 func (s *bookService) GetByID(ctx context.Context, id string) (models.Book, error) {

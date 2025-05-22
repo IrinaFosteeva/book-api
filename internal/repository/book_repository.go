@@ -6,11 +6,12 @@ import (
     "go.mongodb.org/mongo-driver/bson"
     "go.mongodb.org/mongo-driver/bson/primitive"
     "go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type BookRepository interface {
     Create(ctx context.Context, book models.Book) error
-    GetAll(ctx context.Context) ([]models.Book, error)
+    GetAll(ctx context.Context, filter models.BookFilter) ([]models.Book, error)
     GetByID(ctx context.Context, id primitive.ObjectID) (models.Book, error)
     DeleteByID(ctx context.Context, id primitive.ObjectID) error
 	Update(ctx context.Context, book models.Book) error
@@ -48,18 +49,37 @@ func (r *bookRepo) Update(ctx context.Context, book models.Book) error {
     return nil
 }
 
-func (r *bookRepo) GetAll(ctx context.Context) ([]models.Book, error) {
-    cursor, err := r.collection.Find(ctx, bson.M{})
-    if err != nil {
-        return nil, err
-    }
-    defer cursor.Close(ctx)
+func (r *bookRepo) GetAll(ctx context.Context, filter models.BookFilter) ([]models.Book, error) {
+	bsonFilter := bson.M{}
+	if filter.Title != "" {
+		bsonFilter["title"] = bson.M{"$regex": filter.Title, "$options": "i"}
+	}
+	if filter.Author != "" {
+		bsonFilter["author"] = bson.M{"$regex": filter.Author, "$options": "i"}
+	}
 
-    var books []models.Book
-    if err := cursor.All(ctx, &books); err != nil {
-        return nil, err
-    }
-    return books, nil
+	findOptions := options.Find()
+	if filter.Limit > 0 {
+		findOptions.SetLimit(filter.Limit)
+	}
+	findOptions.SetSkip(filter.Offset)
+
+	cursor, err := r.collection.Find(ctx, bsonFilter, findOptions)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var books []models.Book
+	for cursor.Next(ctx) {
+		var book models.Book
+		if err := cursor.Decode(&book); err != nil {
+			return nil, err
+		}
+		books = append(books, book)
+	}
+
+	return books, nil
 }
 
 func (r *bookRepo) GetByID(ctx context.Context, id primitive.ObjectID) (models.Book, error) {
