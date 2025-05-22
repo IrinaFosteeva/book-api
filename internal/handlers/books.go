@@ -4,9 +4,10 @@ import (
     "encoding/json"
     "net/http"
     "book-api/internal/service"
-    "log"
     "github.com/gorilla/mux"
     "github.com/go-playground/validator/v10"
+    "book-api/internal/http/apierr"
+    "book-api/internal/http/dto"
 )
 
 type BookHandler struct {
@@ -20,27 +21,30 @@ func NewBookHandler(s service.BookService) *BookHandler {
 var validate = validator.New()
 
 func (h *BookHandler) CreateBook(w http.ResponseWriter, r *http.Request) {
-    var input struct {
-        Title  string `json:"title" validate:"required,min=2,max=50"`
-        Author string `json:"author" validate:"required,min=2,max=50"`
-    }
+    var input dto.CreateBookInput
 
+    defer r.Body.Close()
     if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-        http.Error(w, "Invalid request body", http.StatusBadRequest)
+        apierr.RespondWithError(w, apierr.NewInternalError("Невалидное тело запроса"))
         return
     }
 
     if err := validate.Struct(input); err != nil {
-        http.Error(w, "Validation failed: "+err.Error(), http.StatusBadRequest)
+        fields := make(map[string]string)
+        for _, e := range err.(validator.ValidationErrors) {
+            fields[e.Field()] = "некорректное значение"
+        }
+        apierr.RespondWithError(w, apierr.NewValidationError(fields))
         return
     }
 
     book, err := h.service.Create(r.Context(), input.Title, input.Author)
     if err != nil {
-        http.Error(w, "Failed to create book: "+err.Error(), http.StatusInternalServerError)
+        apierr.RespondWithError(w, apierr.NewInternalError("Не удалось создать книгу"))
         return
     }
 
+    w.Header().Set("Content-Type", "application/json")
     w.WriteHeader(http.StatusCreated)
     json.NewEncoder(w).Encode(book)
 }
@@ -48,58 +52,62 @@ func (h *BookHandler) CreateBook(w http.ResponseWriter, r *http.Request) {
 func (h *BookHandler) GetBooks(w http.ResponseWriter, r *http.Request) {
     books, err := h.service.GetAll(r.Context())
     if err != nil {
-        log.Printf("Failed to fetch books: %v", err)
-        http.Error(w, "Failed to fetch books", http.StatusInternalServerError)
+        apierr.RespondWithError(w, apierr.NewInternalError("Не удалось получить список книг"))
         return
     }
 
+    w.Header().Set("Content-Type", "application/json")
     json.NewEncoder(w).Encode(books)
 }
 
 func (h *BookHandler) GetBookByID(w http.ResponseWriter, r *http.Request) {
-    vars := mux.Vars(r)
-    id := vars["id"]
+    id := mux.Vars(r)["id"]
     if id == "" {
-        http.Error(w, "Missing id parameter", http.StatusBadRequest)
+        apierr.RespondWithError(w, apierr.NewValidationError(map[string]string{
+            "id": "обязательный параметр",
+        }))
         return
     }
 
     book, err := h.service.GetByID(r.Context(), id)
     if err != nil {
-        http.Error(w, "Book not found or invalid ID: "+err.Error(), http.StatusNotFound)
+        apierr.RespondWithError(w, apierr.NewInternalError("Книга не найдена или некорректный ID"))
         return
     }
 
+    w.Header().Set("Content-Type", "application/json")
     json.NewEncoder(w).Encode(book)
 }
 
 func (h *BookHandler) UpdateBook(w http.ResponseWriter, r *http.Request) {
-    vars := mux.Vars(r)
-    idStr := vars["id"]
+    idStr := mux.Vars(r)["id"]
     if idStr == "" {
-        http.Error(w, "Missing id parameter", http.StatusBadRequest)
+        apierr.RespondWithError(w, apierr.NewValidationError(map[string]string{
+            "id": "обязательный параметр",
+        }))
         return
     }
 
-    var input struct {
-        Title  *string `json:"title,omitempty" validate:"omitempty,min=2"`
-        Author *string `json:"author,omitempty" validate:"omitempty,min=2"`
-    }
+    var input dto.UpdateBookInput
 
     defer r.Body.Close()
     if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-        http.Error(w, "Invalid request body", http.StatusBadRequest)
+        apierr.RespondWithError(w, apierr.NewInternalError("Невалидное тело запроса"))
         return
     }
-    
+
     if err := validate.Struct(&input); err != nil {
-        http.Error(w, "Validation failed: "+err.Error(), http.StatusBadRequest)
+        fields := make(map[string]string)
+        for _, e := range err.(validator.ValidationErrors) {
+            fields[e.Field()] = "некорректное значение"
+        }
+        apierr.RespondWithError(w, apierr.NewValidationError(fields))
         return
     }
 
     book, err := h.service.GetByID(r.Context(), idStr)
     if err != nil {
-        http.Error(w, "Book not found", http.StatusNotFound)
+        apierr.RespondWithError(w, apierr.NewInternalError("Книга не найдена"))
         return
     }
 
@@ -110,9 +118,8 @@ func (h *BookHandler) UpdateBook(w http.ResponseWriter, r *http.Request) {
         book.Author = *input.Author
     }
 
-    err = h.service.Update(r.Context(), book)
-    if err != nil {
-        http.Error(w, "Failed to update book: "+err.Error(), http.StatusInternalServerError)
+    if err := h.service.Update(r.Context(), book); err != nil {
+        apierr.RespondWithError(w, apierr.NewInternalError("Не удалось обновить книгу"))
         return
     }
 
@@ -121,16 +128,16 @@ func (h *BookHandler) UpdateBook(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *BookHandler) DeleteBook(w http.ResponseWriter, r *http.Request) {
-    vars := mux.Vars(r)
-    id := vars["id"]
+    id := mux.Vars(r)["id"]
     if id == "" {
-        http.Error(w, "Missing id parameter", http.StatusBadRequest)
+        apierr.RespondWithError(w, apierr.NewValidationError(map[string]string{
+            "id": "обязательный параметр",
+        }))
         return
     }
 
-    err := h.service.DeleteByID(r.Context(), id)
-    if err != nil {
-        http.Error(w, "Failed to delete book: "+err.Error(), http.StatusInternalServerError)
+    if err := h.service.DeleteByID(r.Context(), id); err != nil {
+        apierr.RespondWithError(w, apierr.NewInternalError("Не удалось удалить книгу"))
         return
     }
 
